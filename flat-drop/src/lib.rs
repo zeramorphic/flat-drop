@@ -36,6 +36,7 @@ pub trait IntoOptionInner {
 /// We keep the invariant that the inner object is always initialised, but will
 /// be dropped (exactly once) in the `drop` implementation.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
 pub struct FlatDrop<K>(ManuallyDrop<K>)
 where
     K: IntoOptionInner,
@@ -130,6 +131,36 @@ where
         // This doesn't leak, because `self` is contained purely on the stack.
         std::mem::forget(self);
         value
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<K> serde::Serialize for FlatDrop<K>
+where
+    K: IntoOptionInner,
+    K::Inner: Recursive<Container = K>,
+    K: serde::Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <K as serde::Serialize>::serialize(self, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, K> serde::Deserialize<'de> for FlatDrop<K>
+where
+    K: IntoOptionInner,
+    K::Inner: Recursive<Container = K>,
+    K: serde::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        <K as serde::Deserialize>::deserialize(deserializer).map(Self::new)
     }
 }
 

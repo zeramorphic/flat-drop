@@ -3,4 +3,8 @@ name = "flat-drop"
 version = "0.0.0"
 edition = "2021"
 
+[features]
+serde = ["dep:serde"]
+
 [dependencies]
+serde = { version = "1.0.219", optional = true }
