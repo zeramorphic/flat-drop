@@ -1,3 +1,5 @@
+# Flat drop
+
 In this crate, we define the `FlatDrop` type.
 `FlatDrop<K>` behaves just like a `K`, but with a custom `Drop` implementation
 that avoids blowing up the stack when dropping large objects.
