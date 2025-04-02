@@ -1,4 +1,5 @@
 use std::{
+    borrow::{Borrow, BorrowMut},
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     rc::Rc,
@@ -93,6 +94,49 @@ impl<T> IntoOptionInner for Arc<T> {
     }
 }
 
+impl<K> FlatDrop<K>
+where
+    K: IntoOptionInner,
+    K::Inner: Recursive<Container = K>,
+{
+    pub const fn new(container: K) -> Self {
+        Self(ManuallyDrop::new(container))
+    }
+
+    pub fn into_inner(mut self) -> K {
+        // Safety: This value is always initialised.
+        // Once we take it, we need to be careful to not call `drop` on `self`.
+        let value = unsafe { ManuallyDrop::take(&mut self.0) };
+        // This doesn't leak, because `self` is contained purely on the stack.
+        std::mem::forget(self);
+        value
+    }
+}
+
+impl<K, T> AsRef<T> for FlatDrop<K>
+where
+    T: ?Sized,
+    K: IntoOptionInner,
+    K::Inner: Recursive<Container = K>,
+    K: AsRef<T>,
+{
+    fn as_ref(&self) -> &T {
+        (**self).as_ref()
+    }
+}
+
+impl<K, T> AsMut<T> for FlatDrop<K>
+where
+    T: ?Sized,
+    K: IntoOptionInner,
+    K::Inner: Recursive<Container = K>,
+    K: AsMut<T>,
+{
+    fn as_mut(&mut self) -> &mut T {
+        (**self).as_mut()
+    }
+}
+
 impl<K> Deref for FlatDrop<K>
 where
     K: IntoOptionInner,
@@ -115,22 +159,40 @@ where
     }
 }
 
-impl<K> FlatDrop<K>
+impl<K> From<K> for FlatDrop<K>
 where
     K: IntoOptionInner,
     K::Inner: Recursive<Container = K>,
 {
-    pub const fn new(container: K) -> Self {
-        Self(ManuallyDrop::new(container))
+    fn from(value: K) -> Self {
+        Self::new(value)
     }
+}
 
-    pub fn into_inner(mut self) -> K {
-        // Safety: This value is always initialised.
-        // Once we take it, we need to be careful to not call `drop` on `self`.
-        let value = unsafe { ManuallyDrop::take(&mut self.0) };
-        // This doesn't leak, because `self` is contained purely on the stack.
-        std::mem::forget(self);
-        value
+impl<T> FlatDrop<Box<T>>
+where
+    T: Recursive<Container = Box<T>>,
+{
+    pub fn new_boxed(value: T) -> Self {
+        Self::new(Box::new(value))
+    }
+}
+
+impl<T> FlatDrop<Rc<T>>
+where
+    T: Recursive<Container = Rc<T>>,
+{
+    pub fn new_rc(value: T) -> Self {
+        Self::new(Rc::new(value))
+    }
+}
+
+impl<T> FlatDrop<Arc<T>>
+where
+    T: Recursive<Container = Arc<T>>,
+{
+    pub fn new_arc(value: T) -> Self {
+        Self::new(Arc::new(value))
     }
 }
 
