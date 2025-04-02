@@ -59,6 +59,7 @@
 //! ```
 
 use std::{
+    fmt::Display,
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     rc::Rc,
@@ -215,6 +216,16 @@ where
 {
     fn deref_mut(&mut self) -> &mut K {
         self.0.deref_mut()
+    }
+}
+
+impl<K> Display for FlatDrop<K>
+where
+    K: IntoOptionInner + Display,
+    K::Inner: Recursive<Container = K>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <K as Display>::fmt(self, f)
     }
 }
 
